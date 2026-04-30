@@ -22,6 +22,7 @@ jobs:
             const payload = context.payload.client_payload || {};
 
             const title = payload.title || "Untitled Task";
+            const owner = payload.owner || "";
 
             const body =
               "Owner: " + (payload.owner || "N/A") + "\n" +
@@ -32,7 +33,7 @@ jobs:
               "Description:\n" +
               (payload.description || "No description provided");
 
-            // 🔍 Get existing open issues
+            // 🔍 Get existing issues
             const issues = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -40,10 +41,12 @@ jobs:
               per_page: 100
             });
 
-            // 🔍 Find issue by title
+            // 🔍 Find issue by title (avoid duplicates)
             const existing = issues.data.find(issue =>
               issue.title === title
             );
+
+            let issueNumber;
 
             if (existing) {
               console.log(`Updating issue #${existing.number}`);
@@ -56,13 +59,29 @@ jobs:
                 body: body
               });
 
+              issueNumber = existing.number;
+
             } else {
               console.log("Creating new issue");
 
-              await github.rest.issues.create({
+              const created = await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 title: title,
                 body: body
+              });
+
+              issueNumber = created.data.number;
+            }
+
+            // 🏷️ Auto-label for team tasks
+            if (owner.toLowerCase().includes("team")) {
+              console.log("Adding Team label");
+
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: ["Team"]
               });
             }
