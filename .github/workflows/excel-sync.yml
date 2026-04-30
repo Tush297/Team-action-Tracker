@@ -17,14 +17,13 @@ jobs:
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
           script: |
             const payload = context.payload.client_payload || {};
 
             const title = payload.title || "Untitled Task";
-            const taskId = payload.task_id || "";
 
             const body =
-              "Task ID: " + (payload.task_id || "N/A") + "\n" +
               "Owner: " + (payload.owner || "N/A") + "\n" +
               "Status: " + (payload.status || "N/A") + "\n" +
               "Start Date: " + (payload.start_date || "N/A") + "\n" +
@@ -32,17 +31,6 @@ jobs:
               "Last Updated: " + (payload.last_updated || "N/A") + "\n\n" +
               "Description:\n" +
               (payload.description || "No description provided");
-
-            // ⚠️ If no task_id, always create new issue
-            if (!taskId) {
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: title,
-                body: body
-              });
-              return;
-            }
 
             // 🔍 Get existing open issues
             const issues = await github.rest.issues.listForRepo({
@@ -52,15 +40,14 @@ jobs:
               per_page: 100
             });
 
-            // 🔍 Find issue with same task_id
+            // 🔍 Find issue by title
             const existing = issues.data.find(issue =>
-              issue.body && issue.body.includes("Task ID: " + taskId)
+              issue.title === title
             );
 
             if (existing) {
-              console.log(`Updating existing issue #${existing.number}`);
+              console.log(`Updating issue #${existing.number}`);
 
-              // 🔁 Update issue
               await github.rest.issues.update({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -72,7 +59,6 @@ jobs:
             } else {
               console.log("Creating new issue");
 
-              // 🆕 Create new issue
               await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
