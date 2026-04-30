@@ -22,7 +22,8 @@ jobs:
             const payload = context.payload.client_payload || {};
 
             const title = payload.title || "Untitled Task";
-            const owner = payload.owner || "";
+            const owner = (payload.owner || "").toLowerCase();
+            const statusValue = payload.status || "";
 
             const body =
               "Owner: " + (payload.owner || "N/A") + "\n" +
@@ -41,10 +42,8 @@ jobs:
               per_page: 100
             });
 
-            // 🔍 Find issue by title (avoid duplicates)
-            const existing = issues.data.find(issue =>
-              issue.title === title
-            );
+            // 🔍 Find issue by title
+            const existing = issues.data.find(issue => issue.title === title);
 
             let issueNumber;
 
@@ -74,14 +73,36 @@ jobs:
               issueNumber = created.data.number;
             }
 
-            // 🏷️ Auto-label for team tasks
-            if (owner.toLowerCase().includes("team")) {
-              console.log("Adding Team label");
+            // 👤 Auto-assign (only if NOT team)
+            if (owner && !owner.includes("team")) {
+              try {
+                await github.rest.issues.addAssignees({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  assignees: [owner]
+                });
+              } catch (e) {
+                console.log("Assignment failed (user may not exist or not collaborator)");
+              }
+            }
 
+            // 🏷️ Team label
+            if (owner.includes("team")) {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
                 labels: ["Team"]
+              });
+            }
+
+            // 🟢 Status label (used for project tracking)
+            if (statusValue) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: [statusValue]
               });
             }
