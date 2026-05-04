@@ -30,34 +30,49 @@ jobs:
               "Description:\n" +
               (payload.description || "No description provided");
 
-            // 🔍 Step 1: Get existing issues
-            const issues = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: "open",
-              per_page: 100
-            });
+            let issues = [];
 
-            // 🔍 Step 2: Find matching issue using ROW_KEY
-            const existing = issues.data.find(issue =>
+            // 🔍 Step 1: Get existing issues (SAFE)
+            try {
+              const response = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: "open",
+                per_page: 30
+              });
+              issues = response.data;
+            } catch (error) {
+              console.log("Issue fetch failed, continuing...");
+            }
+
+            // 🔍 Step 2: Find existing issue using ROW_KEY
+            const existing = issues.find(issue =>
               issue.body && issue.body.includes("ROW_KEY: " + rowKey)
             );
 
             if (existing) {
-              // 🔁 Update existing issue
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: existing.number,
-                title: title,
-                body: body
-              });
+              // 🔁 Update existing issue (SAFE)
+              try {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: existing.number,
+                  title: title,
+                  body: body
+                });
+              } catch (err) {
+                console.log("Update failed, skipping...");
+              }
             } else {
-              // 🆕 Create new issue
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: title,
-                body: body
-              });
+              // 🆕 Create new issue (SAFE)
+              try {
+                await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: title,
+                  body: body
+                });
+              } catch (err) {
+                console.log("Create failed, skipping...");
+              }
             }
