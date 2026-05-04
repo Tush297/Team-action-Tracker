@@ -20,8 +20,19 @@ jobs:
           script: |
             const payload = context.payload.client_payload;
 
-            const title = payload.title || "Untitled Task";
-            const rowKey = payload.row_key || "";
+            // 🚫 Skip empty rows (fix Untitled Task issue)
+            if (!payload.title || payload.title.trim() === "") {
+              console.log("Skipping empty row...");
+              return;
+            }
+
+            if (!payload.row_key || payload.row_key.trim() === "") {
+              console.log("Skipping invalid row key...");
+              return;
+            }
+
+            const title = payload.title;
+            const rowKey = payload.row_key;
 
             const body =
               "ROW_KEY: " + rowKey + "\n" +
@@ -32,7 +43,7 @@ jobs:
 
             let existing = null;
 
-            // 🔍 Step 1: Search existing issue using ROW_KEY (NO LIMIT ISSUE)
+            // 🔍 Search existing issue using ROW_KEY
             try {
               const response = await github.rest.search.issuesAndPullRequests({
                 q: `repo:${context.repo.owner}/${context.repo.repo} "${rowKey}" in:body`
