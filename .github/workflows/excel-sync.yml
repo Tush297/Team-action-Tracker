@@ -30,28 +30,23 @@ jobs:
               "Description:\n" +
               (payload.description || "No description provided");
 
-            let issues = [];
+            let existing = null;
 
-            // 🔍 Step 1: Get existing issues (SAFE)
+            // 🔍 Step 1: Search existing issue using ROW_KEY (NO LIMIT ISSUE)
             try {
-              const response = await github.rest.issues.listForRepo({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                state: "open",
-                per_page: 30
+              const response = await github.rest.search.issuesAndPullRequests({
+                q: `repo:${context.repo.owner}/${context.repo.repo} "${rowKey}" in:body`
               });
-              issues = response.data;
+
+              if (response.data.items.length > 0) {
+                existing = response.data.items[0];
+              }
             } catch (error) {
-              console.log("Issue fetch failed, continuing...");
+              console.log("Search failed, continuing...");
             }
 
-            // 🔍 Step 2: Find existing issue using ROW_KEY
-            const existing = issues.find(issue =>
-              issue.body && issue.body.includes("ROW_KEY: " + rowKey)
-            );
-
             if (existing) {
-              // 🔁 Update existing issue (SAFE)
+              // 🔁 Update existing issue
               try {
                 await github.rest.issues.update({
                   owner: context.repo.owner,
@@ -60,18 +55,20 @@ jobs:
                   title: title,
                   body: body
                 });
+                console.log(`Updated issue #${existing.number}`);
               } catch (err) {
                 console.log("Update failed, skipping...");
               }
             } else {
-              // 🆕 Create new issue (SAFE)
+              // 🆕 Create new issue
               try {
-                await github.rest.issues.create({
+                const created = await github.rest.issues.create({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   title: title,
                   body: body
                 });
+                console.log(`Created issue #${created.data.number}`);
               } catch (err) {
                 console.log("Create failed, skipping...");
               }
