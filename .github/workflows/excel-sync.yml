@@ -20,7 +20,7 @@ jobs:
           script: |
             const payload = context.payload.client_payload;
 
-            // 🚫 Skip empty rows
+            // 🚫 Skip invalid rows
             if (!payload.title || payload.title.trim() === "") {
               console.log("Skipping empty row...");
               return;
@@ -58,15 +58,10 @@ jobs:
               console.log("Issue fetch failed, continuing...");
             }
 
-            // 🔍 Match logic (IMPORTANT: supports old + new)
-            const existing = issues.find(issue => {
-              if (!issue.body) return false;
-
-              return (
-                issue.body.includes("ROW_KEY: " + rowKey) ||   // new system (task_id)
-                issue.title === title                          // fallback for old issues
-              );
-            });
+            // 🔥 STRICT MATCHING (ONLY task_id)
+            const existing = issues.find(issue =>
+              issue.body && issue.body.includes("ROW_KEY: " + rowKey)
+            );
 
             if (existing) {
               // 🔁 Update existing issue
