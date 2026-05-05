@@ -20,7 +20,7 @@ jobs:
           script: |
             const payload = context.payload.client_payload;
 
-            // 🚫 Skip empty rows (fix Untitled Task issue)
+            // 🚫 Skip empty rows
             if (!payload.title || payload.title.trim() === "") {
               console.log("Skipping empty row...");
               return;
@@ -41,20 +41,27 @@ jobs:
               "Description:\n" +
               (payload.description || "No description provided");
 
-            let existing = null;
+            let issues = [];
 
-            // 🔍 Search existing issue using ROW_KEY
+            // 🔍 Fetch ALL issues (no limit problem)
             try {
-              const response = await github.rest.search.issuesAndPullRequests({
-                q: `repo:${context.repo.owner}/${context.repo.repo} "${rowKey}" in:body`
-              });
-
-              if (response.data.items.length > 0) {
-                existing = response.data.items[0];
-              }
+              issues = await github.paginate(
+                github.rest.issues.listForRepo,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  state: "open",
+                  per_page: 100
+                }
+              );
             } catch (error) {
-              console.log("Search failed, continuing...");
+              console.log("Issue fetch failed, continuing...");
             }
+
+            // 🔍 Find existing issue using ROW_KEY
+            const existing = issues.find(issue =>
+              issue.body && issue.body.includes(rowKey)
+            );
 
             if (existing) {
               // 🔁 Update existing issue
