@@ -45,6 +45,7 @@ jobs:
 
             let issues = [];
 
+            // 🔍 Fetch all issues
             try {
               issues = await github.paginate(
                 github.rest.issues.listForRepo,
@@ -59,14 +60,24 @@ jobs:
               console.log("Issue fetch failed, continuing...");
             }
 
+            // 🔍 Strict match using task_id (ROW_KEY)
             const existing = issues.find(issue =>
               issue.body && issue.body.includes("ROW_KEY: " + rowKey)
             );
 
-            // 🎯 LABEL LOGIC
-            const labels = payload.status ? [payload.status] : [];
+            // 🎯 LABEL LOGIC (Status + Team)
+            let labels = [];
+
+            if (payload.status) {
+              labels.push(payload.status);
+            }
+
+            if (payload.owner && payload.owner.toLowerCase().includes("team")) {
+              labels.push("Team");
+            }
 
             if (existing) {
+              // 🔁 Update existing issue
               try {
                 await github.rest.issues.update({
                   owner: context.repo.owner,
@@ -81,6 +92,7 @@ jobs:
                 console.log("Update failed, skipping...");
               }
             } else {
+              // 🆕 Create new issue
               try {
                 const created = await github.rest.issues.create({
                   owner: context.repo.owner,
