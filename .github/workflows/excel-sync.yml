@@ -37,13 +37,14 @@ jobs:
             const body =
               "ROW_KEY: " + rowKey + "\n" +
               "Owner: " + (payload.owner || "N/A") + "\n" +
-              "Status: " + (payload.status || "N/A") + "\n\n" +
+              "Status: " + (payload.status || "N/A") + "\n" +
+              "Start Date: " + (payload.start_date || "N/A") + "\n" +
+              "ETA: " + (payload.eta || "N/A") + "\n\n" +
               "Description:\n" +
               (payload.description || "No description provided");
 
             let issues = [];
 
-            // 🔍 Fetch ALL issues
             try {
               issues = await github.paginate(
                 github.rest.issues.listForRepo,
@@ -58,33 +59,35 @@ jobs:
               console.log("Issue fetch failed, continuing...");
             }
 
-            // 🔥 STRICT MATCHING (ONLY task_id)
             const existing = issues.find(issue =>
               issue.body && issue.body.includes("ROW_KEY: " + rowKey)
             );
 
+            // 🎯 LABEL LOGIC
+            const labels = payload.status ? [payload.status] : [];
+
             if (existing) {
-              // 🔁 Update existing issue
               try {
                 await github.rest.issues.update({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: existing.number,
                   title: title,
-                  body: body
+                  body: body,
+                  labels: labels
                 });
                 console.log(`Updated issue #${existing.number}`);
               } catch (err) {
                 console.log("Update failed, skipping...");
               }
             } else {
-              // 🆕 Create new issue
               try {
                 const created = await github.rest.issues.create({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   title: title,
-                  body: body
+                  body: body,
+                  labels: labels
                 });
                 console.log(`Created issue #${created.data.number}`);
               } catch (err) {
