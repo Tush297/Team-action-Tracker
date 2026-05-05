@@ -43,7 +43,7 @@ jobs:
 
             let issues = [];
 
-            // 🔍 Fetch ALL issues (no limit problem)
+            // 🔍 Fetch ALL issues
             try {
               issues = await github.paginate(
                 github.rest.issues.listForRepo,
@@ -58,10 +58,15 @@ jobs:
               console.log("Issue fetch failed, continuing...");
             }
 
-            // 🔍 Find existing issue using ROW_KEY
-            const existing = issues.find(issue =>
-              issue.body && issue.body.includes(rowKey)
-            );
+            // 🔍 Match logic (IMPORTANT: supports old + new)
+            const existing = issues.find(issue => {
+              if (!issue.body) return false;
+
+              return (
+                issue.body.includes("ROW_KEY: " + rowKey) ||   // new system (task_id)
+                issue.title === title                          // fallback for old issues
+              );
+            });
 
             if (existing) {
               // 🔁 Update existing issue
